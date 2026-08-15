@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -13,15 +13,50 @@ import { TaskInput } from "../components/TaskInput";
 import { TaskItem } from "../components/TaskItem";
 import { colors } from "../constants/colors";
 import { Task, TaskFilter } from "../types/task";
+import { loadTasks, saveTasks } from "../utils/storage";
 
 /**
  * HomeScreen - PocketTasks
  * 
- * Manages task operations: creation, completion toggling, deletion, and filtering.
+ * Manages application state, persistence lifecycle, and user interactions.
  */
 export default function HomeScreen() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState<TaskFilter>("all");
+  const [loading, setLoading] = useState(true);
+
+  /**
+   * Application Startup Lifecycle:
+   * Load saved tasks from AsyncStorage on initial mount.
+   */
+  useEffect(() => {
+    let isMounted = true;
+
+    async function initializeTasks() {
+      const storedTasks = await loadTasks();
+      if (isMounted) {
+        setTasks(storedTasks);
+        setLoading(false);
+      }
+    }
+
+    initializeTasks();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  /**
+   * Persistence Lifecycle:
+   * Save updated tasks collection whenever `tasks` changes.
+   * Guard: Never save before the initial load has completed (prevents overwriting with []).
+   */
+  useEffect(() => {
+    if (!loading) {
+      saveTasks(tasks);
+    }
+  }, [tasks, loading]);
 
   /**
    * Adds a new task to the top of the collection using an immutable update.
