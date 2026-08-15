@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import {
+  FlatList,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -7,18 +8,20 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { FilterBar } from "../components/FilterBar";
 import { TaskInput } from "../components/TaskInput";
 import { TaskItem } from "../components/TaskItem";
 import { colors } from "../constants/colors";
-import { Task } from "../types/task";
+import { Task, TaskFilter } from "../types/task";
 
 /**
  * HomeScreen - PocketTasks
  * 
- * Manages task operations: creation, completion toggling, and deletion.
+ * Manages task operations: creation, completion toggling, deletion, and filtering.
  */
 export default function HomeScreen() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [filter, setFilter] = useState<TaskFilter>("all");
 
   /**
    * Adds a new task to the top of the collection using an immutable update.
@@ -54,6 +57,28 @@ export default function HomeScreen() {
     );
   };
 
+  /**
+   * Derived state: Calculate filtered tasks on-the-fly without duplicating state.
+   */
+  const filteredTasks = tasks.filter((task) => {
+    if (filter === "active") {
+      return !task.completed;
+    }
+    if (filter === "completed") {
+      return task.completed;
+    }
+    return true;
+  });
+
+  /**
+   * Derived state: Calculate task counts for filter badges.
+   */
+  const taskCounts = {
+    all: tasks.length,
+    active: tasks.filter((t) => !t.completed).length,
+    completed: tasks.filter((t) => t.completed).length,
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <KeyboardAvoidingView
@@ -72,19 +97,29 @@ export default function HomeScreen() {
           {/* Task Creation Input */}
           <TaskInput onAddTask={addTask} />
 
+          {/* Filter Bar */}
+          <FilterBar
+            filter={filter}
+            onChange={setFilter}
+            counts={taskCounts}
+          />
+
           {/* Task List Section */}
           <View style={styles.listContainer}>
-            <Text style={styles.sectionHeader}>
-              Today's Tasks ({tasks.length})
-            </Text>
-            {tasks.map((task) => (
-              <TaskItem
-                key={task.id}
-                task={task}
-                onToggle={toggleTask}
-                onDelete={deleteTask}
-              />
-            ))}
+            <FlatList
+              data={filteredTasks}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TaskItem
+                  task={item}
+                  onToggle={toggleTask}
+                  onDelete={deleteTask}
+                />
+              )}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            />
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -123,12 +158,7 @@ const styles = StyleSheet.create({
   listContainer: {
     flex: 1,
   },
-  sectionHeader: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 12,
+  listContent: {
+    paddingBottom: 24,
   },
 });
