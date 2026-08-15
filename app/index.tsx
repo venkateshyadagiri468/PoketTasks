@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -8,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { EmptyState } from "../components/EmptyState";
 import { FilterBar } from "../components/FilterBar";
 import { TaskInput } from "../components/TaskInput";
 import { TaskItem } from "../components/TaskItem";
@@ -16,9 +18,23 @@ import { Task, TaskFilter } from "../types/task";
 import { loadTasks, saveTasks } from "../utils/storage";
 
 /**
+ * Returns a friendly greeting based on the current hour of the day.
+ */
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) {
+    return "Good morning 👋";
+  }
+  if (hour < 17) {
+    return "Good afternoon 👋";
+  }
+  return "Good evening 👋";
+}
+
+/**
  * HomeScreen - PocketTasks
  * 
- * Manages application state, persistence lifecycle, and user interactions.
+ * The root screen coordinating UI, state, and local persistence.
  */
 export default function HomeScreen() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -26,8 +42,8 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
 
   /**
-   * Application Startup Lifecycle:
-   * Load saved tasks from AsyncStorage on initial mount.
+   * 1. App Startup:
+   * Load saved tasks asynchronously from AsyncStorage on first mount.
    */
   useEffect(() => {
     let isMounted = true;
@@ -48,9 +64,9 @@ export default function HomeScreen() {
   }, []);
 
   /**
-   * Persistence Lifecycle:
-   * Save updated tasks collection whenever `tasks` changes.
-   * Guard: Never save before the initial load has completed (prevents overwriting with []).
+   * 2. Auto-Persistence:
+   * Save tasks whenever the collection updates.
+   * Safety guard: only runs after the initial load completes.
    */
   useEffect(() => {
     if (!loading) {
@@ -59,7 +75,7 @@ export default function HomeScreen() {
   }, [tasks, loading]);
 
   /**
-   * Adds a new task to the top of the collection using an immutable update.
+   * Creates a new task and immutably prepends it to state.
    */
   const addTask = (title: string) => {
     const newTask: Task = {
@@ -73,7 +89,7 @@ export default function HomeScreen() {
   };
 
   /**
-   * Toggles the completion status of a task by ID using immutable map().
+   * Toggles task completion state immutably using Array.prototype.map().
    */
   const toggleTask = (id: string) => {
     setTasks((currentTasks) =>
@@ -84,7 +100,7 @@ export default function HomeScreen() {
   };
 
   /**
-   * Removes a task from state by ID using immutable filter().
+   * Deletes a task by ID immutably using Array.prototype.filter().
    */
   const deleteTask = (id: string) => {
     setTasks((currentTasks) =>
@@ -93,7 +109,8 @@ export default function HomeScreen() {
   };
 
   /**
-   * Derived state: Calculate filtered tasks on-the-fly without duplicating state.
+   * Derived State:
+   * Filtered task list based on current active filter tab.
    */
   const filteredTasks = tasks.filter((task) => {
     if (filter === "active") {
@@ -106,12 +123,16 @@ export default function HomeScreen() {
   });
 
   /**
-   * Derived state: Calculate task counts for filter badges.
+   * Derived State:
+   * Active and completed counts for header badges and filter pills.
    */
+  const activeCount = tasks.filter((t) => !t.completed).length;
+  const completedCount = tasks.filter((t) => t.completed).length;
+
   const taskCounts = {
     all: tasks.length,
-    active: tasks.filter((t) => !t.completed).length,
-    completed: tasks.filter((t) => t.completed).length,
+    active: activeCount,
+    completed: completedCount,
   };
 
   return (
@@ -123,7 +144,18 @@ export default function HomeScreen() {
         <View style={styles.container}>
           {/* Header Section */}
           <View style={styles.header}>
-            <Text style={styles.greeting}>Good day 👋</Text>
+            <View style={styles.headerTopRow}>
+              <Text style={styles.greeting}>{getGreeting()}</Text>
+              {tasks.length > 0 && (
+                <View style={styles.statusPill}>
+                  <Text style={styles.statusPillText}>
+                    {activeCount === 0
+                      ? "All done!"
+                      : `${activeCount} active`}
+                  </Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.subtitle}>
               Stay focused and get things done.
             </Text>
@@ -139,22 +171,30 @@ export default function HomeScreen() {
             counts={taskCounts}
           />
 
-          {/* Task List Section */}
+          {/* Task List / Loading / Empty State */}
           <View style={styles.listContainer}>
-            <FlatList
-              data={filteredTasks}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TaskItem
-                  task={item}
-                  onToggle={toggleTask}
-                  onDelete={deleteTask}
-                />
-              )}
-              contentContainerStyle={styles.listContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            />
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.loadingText}>Loading your tasks...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredTasks}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TaskItem
+                    task={item}
+                    onToggle={toggleTask}
+                    onDelete={deleteTask}
+                  />
+                )}
+                ListEmptyComponent={<EmptyState filter={filter} />}
+                contentContainerStyle={styles.listContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              />
+            )}
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -178,11 +218,27 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 20,
   },
+  headerTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   greeting: {
     fontSize: 28,
     fontWeight: "700",
     color: colors.text,
     letterSpacing: -0.5,
+  },
+  statusPill: {
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusPillText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.primary,
   },
   subtitle: {
     fontSize: 15,
@@ -194,6 +250,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingBottom: 24,
+    paddingBottom: 28,
+    flexGrow: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: colors.muted,
   },
 });
