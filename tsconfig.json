@@ -1,18 +1,10 @@
 {
+  "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "lib": ["ESNext"],
-    "jsx": "react-native",
-    "moduleResolution": "bundler",
-    "types": [],
     "strict": true,
     "paths": {
       "@/*": ["./*"]
-    },
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true
+    }
   },
   "include": [
     "**/*.ts",
