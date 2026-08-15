@@ -8,13 +8,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TaskInput } from "../components/TaskInput";
+import { TaskItem } from "../components/TaskItem";
 import { colors } from "../constants/colors";
 import { Task } from "../types/task";
 
 /**
  * HomeScreen - PocketTasks
  * 
- * Maintains the source-of-truth task state and coordinates user interactions.
+ * Manages task operations: creation, completion toggling, and deletion.
  */
 export default function HomeScreen() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -31,6 +32,26 @@ export default function HomeScreen() {
     };
 
     setTasks((currentTasks) => [newTask, ...currentTasks]);
+  };
+
+  /**
+   * Toggles the completion status of a task by ID using immutable map().
+   */
+  const toggleTask = (id: string) => {
+    setTasks((currentTasks) =>
+      currentTasks.map((task) =>
+        task.id === id ? { ...task, completed: !task.completed } : task
+      )
+    );
+  };
+
+  /**
+   * Removes a task from state by ID using immutable filter().
+   */
+  const deleteTask = (id: string) => {
+    setTasks((currentTasks) =>
+      currentTasks.filter((task) => task.id !== id)
+    );
   };
 
   return (
@@ -51,15 +72,18 @@ export default function HomeScreen() {
           {/* Task Creation Input */}
           <TaskInput onAddTask={addTask} />
 
-          {/* Temporary preview of task list (Phase 4) */}
-          <View style={styles.listPreview}>
+          {/* Task List Section */}
+          <View style={styles.listContainer}>
             <Text style={styles.sectionHeader}>
-              Tasks ({tasks.length})
+              Today's Tasks ({tasks.length})
             </Text>
             {tasks.map((task) => (
-              <View key={task.id} style={styles.previewItem}>
-                <Text style={styles.previewText}>{task.title}</Text>
-              </View>
+              <TaskItem
+                key={task.id}
+                task={task}
+                onToggle={toggleTask}
+                onDelete={deleteTask}
+              />
             ))}
           </View>
         </View>
@@ -96,7 +120,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: "400",
   },
-  listPreview: {
+  listContainer: {
     flex: 1,
   },
   sectionHeader: {
@@ -106,17 +130,5 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 12,
-  },
-  previewItem: {
-    backgroundColor: colors.surface,
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  previewText: {
-    fontSize: 16,
-    color: colors.text,
   },
 });
